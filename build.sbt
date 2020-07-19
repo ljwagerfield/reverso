@@ -66,15 +66,17 @@ scalacOptions := Seq(
 resolvers += JCenterRepository
 
 libraryDependencies ++= Seq(
-  "org.typelevel"     %% "cats-core"       % catsVersion,
-  "org.typelevel"     %% "cats-effect"     % catsEffectVersion,
-  "org.typelevel"     %% "alleycats-core"  % catsVersion,
-  "co.fs2"            %% "fs2-core"        % fs2Version,
-  "org.choco-solver"   % "choco-solver"    % "4.10.2",
-  "org.scalatest"     %% "scalatest"       % "3.1.0"         % Test,
-  "org.scalatestplus" %% "scalacheck-1-14" % "3.1.0.0"       % Test,
-  "org.scalacheck"    %% "scalacheck"      % "1.14.0"        % Test,
-  "com.github.ghik"   %% "silencer-lib"    % silencerVersion % Provided cross CrossVersion.full,
+  "org.typelevel"     %% "cats-core"            % catsVersion,
+  "org.typelevel"     %% "cats-effect"          % catsEffectVersion,
+  "org.typelevel"     %% "alleycats-core"       % catsVersion,
+  "co.fs2"            %% "fs2-core"             % fs2Version,
+  "org.choco-solver"   % "choco-solver"         % "4.10.2",
+  "org.typelevel"     %% "cats-laws"            % catsVersion     % Test,
+  "org.typelevel"     %% "discipline-scalatest" % "1.0.1"         % Test,
+  "org.scalatest"     %% "scalatest"            % "3.1.0"         % Test,
+  "org.scalatestplus" %% "scalacheck-1-14"      % "3.1.0.0"       % Test,
+  "org.scalacheck"    %% "scalacheck"           % "1.14.0"        % Test,
+  "com.github.ghik"   %% "silencer-lib"         % silencerVersion % Provided cross CrossVersion.full,
   compilerPlugin("org.typelevel"   %% "kind-projector"  % "0.10.3"),
   compilerPlugin("com.github.ghik" %% "silencer-plugin" % silencerVersion cross CrossVersion.full)
 )
