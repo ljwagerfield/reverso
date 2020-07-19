@@ -8,11 +8,11 @@ import reverso.Variables.IntVariable
 import reverso.common.RefPessimistic
 
 /**
-  * Provides access to the function's solutions.
+  * Provides access to the predicate's solutions.
   *
   * Thread-safe: yes.
   */
-class FunctionModel[F[_]: Concurrent](
+class PredicateModel[F[_]: Concurrent](
   chocoRef: RefPessimistic[F, ChocoState],
   completedCallStacks: Vector[CallStack],
   currentCallStack: IntVariable

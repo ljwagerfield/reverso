@@ -1,14 +1,17 @@
 package reverso
 
+import cats.data.StateT
 import cats.effect.Concurrent
 import cats.effect.concurrent.Ref
 import cats.implicits._
-import reverso.FunctionAST.FunctionDefinition
+import reverso.PredicateAST.PredicateDefinition
 import reverso.common.Extensions._
 import reverso.common.UInt
 
-class FunctionCompiler[F[_]: Concurrent] {
-  def compile(function: FunctionDefinition, variableLimit: UInt): F[FunctionModel[F]] =
+class PredicateCompiler[F[_]: Concurrent] {
+  private type CompilationTree[G[_[_], _], A] = StateT[G[F, *], CallStack, A]
+
+  def compile(function: PredicateDefinition, variableLimit: UInt): F[PredicateModel[F]] =
     for {
       choco                  <- ChocoState.empty()
       pool                   <- VariablePool.empty(choco, variableLimit + 1) // + 1 for 'currentCallStack' below.
@@ -17,10 +20,10 @@ class FunctionCompiler[F[_]: Concurrent] {
       compilation             = new Compilation(function, pool, completedCallStacksRef)
       _                      <- compilation.run()
       completedCallStacks    <- completedCallStacksRef.get
-    } yield new FunctionModel[F](choco, completedCallStacks.values.toVector, currentCallStack)
+    } yield new PredicateModel[F](choco, completedCallStacks.values.toVector, currentCallStack)
 
   private class Compilation(
-    function: FunctionDefinition,
+    function: PredicateDefinition,
     pool: VariablePool[F],
     completedCallStacksRef: Ref[F, CompletedCallStacks]
   ) {

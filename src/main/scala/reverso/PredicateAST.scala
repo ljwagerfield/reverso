@@ -1,11 +1,11 @@
 package reverso
 
-import reverso.FunctionAST.Variable.Field
+import reverso.PredicateAST.Variable.Field
 
-object FunctionAST {
-  case class FunctionDefinition(signature: FunctionSignature, body: FunctionBody)
-  case class FunctionSignature(inputs: Set[FieldName])
-  case class FunctionBody(statements: Map[List[Predicate], Terminal])
+object PredicateAST {
+  case class PredicateDefinition(signature: PredicateSignature, body: PredicateBody)
+  case class PredicateSignature(inputs: Set[FieldName])
+  case class PredicateBody(statements: Map[List[Constraint], Terminal])
 
   case class ParameterName(value: String)
   case class FieldName(value: String)
@@ -43,33 +43,33 @@ object FunctionAST {
     case class Divide(left: Relatable, right: Relatable)   extends Arithmetic
   }
 
-  sealed trait Predicate
+  sealed trait Constraint
 
   // Denormalized to a flat structure by excluding Not() from the AST.
   // This prevents us from having to recursively simplify and translate negations.
-  object Predicate {
-    case class IsDefined(field: Field)                      extends Predicate
-    case class NotDefined(field: Field)                     extends Predicate
-    case class IsNull(field: Assignable)                    extends Predicate
-    case class NotNull(field: Assignable)                   extends Predicate
-    case class IsInt(field: Assignable)                     extends Predicate
-    case class NotInt(field: Assignable)                    extends Predicate
-    case class IsDouble(field: Assignable)                  extends Predicate
-    case class NotDouble(field: Assignable)                 extends Predicate
-    case class IsBoolean(field: Assignable)                 extends Predicate
-    case class NotBoolean(field: Assignable)                extends Predicate
-    case class IsComplex(field: Assignable)                 extends Predicate
-    case class NotComplex(field: Assignable)                extends Predicate
-    case class IsArray(field: Assignable)                   extends Predicate
-    case class NotArray(field: Assignable)                  extends Predicate
-    case class IsEmpty(field: Variable)                     extends Predicate // Can only be used on arrays, not objects.
-    case class NotEmpty(field: Variable)                    extends Predicate
-    case class IsEqual(left: Assignable, right: Relatable)  extends Predicate
-    case class NotEqual(left: Assignable, right: Relatable) extends Predicate
-    case class LT(left: Assignable, right: Relatable)       extends Predicate
-    case class LTE(left: Assignable, right: Relatable)      extends Predicate
-    case class GT(left: Assignable, right: Relatable)       extends Predicate
-    case class GTE(left: Assignable, right: Relatable)      extends Predicate
+  object Constraint {
+    case class IsDefined(field: Field)                      extends Constraint
+    case class NotDefined(field: Field)                     extends Constraint
+    case class IsNull(field: Assignable)                    extends Constraint
+    case class NotNull(field: Assignable)                   extends Constraint
+    case class IsInt(field: Assignable)                     extends Constraint
+    case class NotInt(field: Assignable)                    extends Constraint
+    case class IsDouble(field: Assignable)                  extends Constraint
+    case class NotDouble(field: Assignable)                 extends Constraint
+    case class IsBoolean(field: Assignable)                 extends Constraint
+    case class NotBoolean(field: Assignable)                extends Constraint
+    case class IsComplex(field: Assignable)                 extends Constraint
+    case class NotComplex(field: Assignable)                extends Constraint
+    case class IsArray(field: Assignable)                   extends Constraint
+    case class NotArray(field: Assignable)                  extends Constraint
+    case class IsEmpty(field: Variable)                     extends Constraint // Can only be used on arrays, not objects.
+    case class NotEmpty(field: Variable)                    extends Constraint
+    case class IsEqual(left: Assignable, right: Relatable)  extends Constraint
+    case class NotEqual(left: Assignable, right: Relatable) extends Constraint
+    case class LT(left: Assignable, right: Relatable)       extends Constraint
+    case class LTE(left: Assignable, right: Relatable)      extends Constraint
+    case class GT(left: Assignable, right: Relatable)       extends Constraint
+    case class GTE(left: Assignable, right: Relatable)      extends Constraint
   }
 
   sealed trait Assignment

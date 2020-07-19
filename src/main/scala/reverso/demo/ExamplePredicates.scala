@@ -1,32 +1,32 @@
 package reverso.demo
 
-import reverso.FunctionAST.Assignment.{Assign, Unassign}
-import reverso.FunctionAST.Constant.{BooleanConstant, IntConstant}
-import reverso.FunctionAST.Predicate._
-import reverso.FunctionAST.Terminal.{Continue, Success}
-import reverso.FunctionAST.Variable.{Field, Head, Tail}
-import reverso.FunctionAST.{FieldName, FunctionBody, FunctionDefinition, FunctionSignature}
+import reverso.PredicateAST.Assignment.{Assign, Unassign}
+import reverso.PredicateAST.Constant.{BooleanConstant, IntConstant}
+import reverso.PredicateAST.Constraint._
+import reverso.PredicateAST.Terminal.{Continue, Success}
+import reverso.PredicateAST.Variable.{Field, Head, Tail}
+import reverso.PredicateAST.{FieldName, PredicateBody, PredicateDefinition, PredicateSignature}
 
-object ExampleFunctions {
+object ExamplePredicates {
 
   /**
     * Outputs: { "Input": [1,0,1,0,...] }
     *          { "Input": [0,1,0,1,...] }
     */
-  val nonEmptyAlternatingBinary: FunctionDefinition = {
+  val nonEmptyAlternatingBinary: PredicateDefinition = {
     val input: Field = Field(None, FieldName("Input"))
     object Registers {
       val nonEmpty: Field = Field(None, FieldName("NonEmpty"))
       val zero: Field     = Field(None, FieldName("Zero"))
       val one: Field      = Field(None, FieldName("One"))
     }
-    FunctionDefinition(
-      FunctionSignature(
+    PredicateDefinition(
+      PredicateSignature(
         Set(
           input.name
         )
       ),
-      FunctionBody(
+      PredicateBody(
         Map(
           (
             List(
