@@ -1,6 +1,6 @@
 package reverso.common
 
-import cats.{Monad, Traverse}
+import cats.{Applicative, Monad, Traverse}
 import cats.implicits._
 
 /**
@@ -24,6 +24,9 @@ import cats.implicits._
 case class ListT[M[_], A](value: M[List[A]])
 
 object ListT {
+
+  def fromList[M[_]: Applicative, A](list: List[A]): ListT[M, A] =
+    ListT(list.pure[M])
 
   implicit def listTMonad[M[_]: Monad]: Monad[ListT[M, *]] =
     new Monad[ListT[M, *]] {
