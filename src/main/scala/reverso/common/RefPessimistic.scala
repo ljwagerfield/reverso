@@ -1,7 +1,7 @@
 package reverso.common
 
 import cats.effect.{Concurrent, Resource, Sync}
-import cats.effect.concurrent.MVar
+import cats.effect.concurrent.{MVar, MVar2}
 import cats.implicits._
 
 /**
@@ -11,7 +11,7 @@ import cats.implicits._
   *
   * See: https://typelevel.org/cats-effect/concurrency/mvar.html#use-case-asynchronous-lock-binary-semaphore-mutex
   */
-final class RefPessimistic[F[_]: Sync, A](mvar: MVar[F, A]) {
+final class RefPessimistic[F[_]: Sync, A](mvar: MVar2[F, A]) {
 
   /**
     * Resource that can only be 'used' once-at-a-time.
