@@ -2,6 +2,44 @@ package reverso
 
 import reverso.PredicateAST.Variable.Field
 
+/**
+  * Abstract syntax tree (AST) for defining predicates (functions that return a boolean).
+  *
+  * Design Focus:
+  *
+  *   The AST has been designed to be evaluated in reverse, meaning the code that consumes it first looks at the end
+  *   stack frame (i.e. 'return true') and steps backwards through all the possible stack frames that may have lead
+  *   to that state, until it reaches a viable starting stack frame for the predicate.
+  *
+  * Features:
+  *
+  *   The AST is therefore primitive in order to make reverse-engineering it easier: there is a single outer loop and a
+  *   sequence of inner IF statements. There are no ELSE statements. An IF statement can contain equalities (==),
+  *   inequalities (<,>,<=,>=,!=), basic algebra (+,-,*,/) and AND operators, but not OR operators. For working with
+  *   arrays, you can get the head or tail of an array, and check if it's empty, but that is all. You must implement
+  *   all other array operations yourself (e.g. length, sum, filter, exists, etc.). You cannot define your own
+  *   functions: everything must be written inside one loop as a sequence of IF statements. The body of an IF statement
+  *   is either a 'return true' (see 'Success' terminal) or an assignment of variables (see 'Continue' terminal). The
+  *   outer loop continues looping until either a 'return true' is met, or none of the IF statements match, in which
+  *   case a 'return false' is applied automatically.
+  *
+  * Pseudocode:
+  *
+  *   Example of a predicate that validates a sequence of alternating binary (implemented using the AST's concepts):
+  *
+  * {{{
+  * // system functions used:          isEmpty, nonEmpty, head, set
+  * // variables defined by predicate: input, last
+  * loop {
+  *   if (isEmpty(input))
+  *     return true
+  *   if (nonEmpty(input) && head(input) != last && head(input) == 0)
+  *     set({ input: tail(input), last: head(input) })
+  *   if (nonEmpty(input) && head(input) != last && head(input) == 1)
+  *     set({ input: tail(input), last: head(input) })
+  * }
+  * }}}
+  */
 object PredicateAST {
   case class PredicateDefinition(signature: PredicateSignature, body: PredicateBody)
   case class PredicateSignature(inputs: Set[FieldName])
@@ -34,13 +72,13 @@ object PredicateAST {
     case class ObjectEntries(variable: Assignable)                extends Variable // Array of {"key":_, "value":_}
   }
 
-  sealed trait Arithmetic extends Relatable
+  sealed trait BasicAlgebra extends Relatable
 
-  object Arithmetic {
-    case class Add(left: Relatable, right: Relatable)      extends Arithmetic
-    case class Subtract(left: Relatable, right: Relatable) extends Arithmetic
-    case class Multiply(left: Relatable, right: Relatable) extends Arithmetic
-    case class Divide(left: Relatable, right: Relatable)   extends Arithmetic
+  object BasicAlgebra {
+    case class Add(left: Relatable, right: Relatable)      extends BasicAlgebra
+    case class Subtract(left: Relatable, right: Relatable) extends BasicAlgebra
+    case class Multiply(left: Relatable, right: Relatable) extends BasicAlgebra
+    case class Divide(left: Relatable, right: Relatable)   extends BasicAlgebra
   }
 
   sealed trait Constraint
