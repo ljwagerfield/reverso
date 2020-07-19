@@ -70,6 +70,7 @@ libraryDependencies ++= Seq(
   "org.typelevel"     %% "cats-effect"     % catsEffectVersion,
   "org.typelevel"     %% "alleycats-core"  % catsVersion,
   "co.fs2"            %% "fs2-core"        % fs2Version,
+  "org.choco-solver"   % "choco-solver"    % "4.10.2",
   "org.scalatest"     %% "scalatest"       % "3.1.0"         % Test,
   "org.scalatestplus" %% "scalacheck-1-14" % "3.1.0.0"       % Test,
   "org.scalacheck"    %% "scalacheck"      % "1.14.0"        % Test,
