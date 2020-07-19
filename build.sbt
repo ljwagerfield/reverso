@@ -10,7 +10,7 @@ scalaVersion := "2.13.3"
 
 val silencerVersion   = "1.7.0"
 val catsVersion       = "2.1.1"
-val catsEffectVersion = "2.1.4"
+val catsEffectVersion = "2.2.0-RC1"
 val fs2Version        = "2.4.2"
 
 // ----------------

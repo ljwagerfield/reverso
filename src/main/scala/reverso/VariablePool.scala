@@ -55,10 +55,7 @@ class VariablePool[F[_]: Sync](
         external       = makeExternalVariable(variableId)
         _              = map(choco).update(external, internal)
       } yield external
-    }(
-      // See: https://gitter.im/typelevel/cats?at=5f14345882ccdc78add2bce6
-      implicitly[Sync[EitherT[F, VariableLimitReached.type, *]]]
-    )
+    }
   }
 
   private def getAndIncVariableId: F[VariableId] =
