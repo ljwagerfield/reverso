@@ -1,8 +1,8 @@
 package reverso.common
 
 import cats.data.OptionT
-import cats.{~>, Eval, Functor}
 import cats.implicits._
+import cats.{~>, Functor}
 
 object MapK {
   def optionTtoListT[F[_]: Functor]: OptionT[F, *] ~> ListT[F, *] =

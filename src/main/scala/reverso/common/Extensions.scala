@@ -1,6 +1,6 @@
 package reverso.common
 
-import cats.data.EitherT
+import cats.data.{EitherT, OptionT}
 import cats.implicits._
 import cats.{Functor, MonadError}
 
@@ -28,5 +28,10 @@ object Extensions {
         case Left(e)  => new Exception(s"Unexpected error: expected Right(...) but got Left($e)").raiseError[F, B]
         case Right(r) => r.pure[F]
       }
+  }
+
+  implicit class RichOptionTCompanion(val value: OptionT.type) extends AnyVal {
+    def whenF[F[_]: Functor, A](cond: F[Boolean])(a: => A): OptionT[F, A] =
+      OptionT(cond.map(bool => Option.when(bool)(a)))
   }
 }

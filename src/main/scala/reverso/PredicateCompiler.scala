@@ -6,7 +6,7 @@ import cats.effect.Concurrent
 import cats.effect.concurrent.Ref
 import cats.implicits._
 import reverso.PredicateAST.Terminal.{Continue, Success}
-import reverso.PredicateAST.{Constraint, PredicateDefinition, Terminal}
+import reverso.PredicateAST.{Assignment, Constraint, PredicateDefinition, Terminal}
 import reverso.PredicateCompiler.Errors.NoSolutionsFound
 import reverso.Variables.IntVariable
 import reverso.common.Extensions._
@@ -34,7 +34,7 @@ class PredicateCompiler[F[_]: Concurrent] {
       _                <- compilerContext.generateValidCallStacks().asRightLifted[Error]
       validCallStacks  <- compilerContext.getValidCallStacks
       currentCallStack <- compilerContext.allocateCurrentStackIndexVariable(validCallStacks.size).asRightLifted[Error]
-    } yield new PredicateModel[F](compilerContext.choco, validCallStacks.toList.toVector, currentCallStack)
+    } yield new PredicateModel[F](compilerContext.chocoRef, validCallStacks.toList.toVector, currentCallStack)
   }
 
   /**
@@ -55,7 +55,7 @@ class PredicateCompiler[F[_]: Concurrent] {
     * Private methods grouped into a class to provide easier access to shared variables.
     */
   private class CompilerContext(
-    val choco: RefPessimistic[F, ChocoState],
+    val chocoRef: RefPessimistic[F, ChocoState],
     pool: VariablePool[F],
     predicate: PredicateDefinition,
     validCallStacksRef: Ref[F, ValidCallStacks]
@@ -103,7 +103,7 @@ class PredicateCompiler[F[_]: Concurrent] {
       for {
         _ <- addStatements(statements)
         _ <- filterConsistentStatements.mapK(fromOption)
-        _ <- yieldIfAtInitialState.mapK(fromF)
+        _ <- ifCallStackCompleteYield.mapK(fromF)
       } yield ()
 
     private def addStatements(statements: List[(List[Constraint], Terminal)]): CompilationTreeT[ListT, Unit] =
@@ -115,33 +115,71 @@ class PredicateCompiler[F[_]: Concurrent] {
         _                      <- addTerminal(terminal).mapK(fromOption)
       } yield ()
 
-    private def filterConsistentStatements: CompilationTreeT[OptionT, Unit] = {}
+    private def addConstraints(constraints: List[Constraint]): CompilationTreeT[OptionT, Unit] =
+      constraints.traverse_(addConstraint)
 
-    private def yieldIfAtInitialState: CompilationTree[Unit] =
+    private def addTerminal(terminal: Terminal): CompilationTreeT[OptionT, Unit] =
+      terminal match {
+        case Success               => ().pure[CompilationTreeT[OptionT, *]]
+        case Continue(assignments) => addAssignments(assignments)
+      }
+
+    private def addAssignments(assignments: List[Assignment]): CompilationTreeT[OptionT, Unit] =
+      assignments.traverse_(addAssignment)
+
+    private def addConstraint(constraint: Constraint): CompilationTreeT[OptionT, Unit] = {
+      // Return NONE when variables exceed graph.maxVariables
+      // Aim of this method (and the 'addTerminal' method) is to:
+      // - Identify which variables in this stack frame reference new variables, or reference existing variables.
+      // - If existing: get said variable.
+      // - Else if new: allocate and record its structure in 'PointerGraph'
+      // - If the constraint is 'Relational': record the constraints in Choco.
+    }
+
+    private def addAssignment(assignment: Assignment): CompilationTreeT[OptionT, Unit] = {
+      // Return NONE when variables exceed graph.maxVariables
+      // Aim of this method (and the 'addTerminal' method) is to:
+      // - Identify which variables in this stack frame reference new variables, or reference existing variables.
+      // - If existing: get said variable.
+      // - Else if new: allocate and record its structure in 'PointerGraph'
+      // - If the constraint is 'Relational': record the constraints in Choco.
+    }
+
+    private def filterConsistentStatements: CompilationTreeT[OptionT, Unit] =
+      CompilationTreeT(callStack => OptionT.whenF(isCallStackConsistent(callStack))(callStack -> ()))
+
+    private def isCallStackConsistent(callStack: CallStack): F[Boolean] = {
+      val stackFrames = callStack.frames.map(_.constraintSwitch)
+      chocoRef.accessSync { choco =>
+        val model              = choco.model
+        val solver             = model.getSolver
+        val stackFrameSwitches = stackFrames.collect(choco.booleans)
+        val setSwitches        = stackFrameSwitches.map(x => x.eq(1).decompose())
+        model.post(setSwitches: _*)
+        val isValid = solver.solve()
+        solver.hardReset()
+        model.unpost(setSwitches: _*)
+        isValid
+      }
+    }
+
+    private def ifCallStackCompleteYield: CompilationTree[Unit] =
       CompilationTree.get.flatMapF { callStack =>
-        if (isInitialState(callStack))
-          yieldInitialState(callStack)
+        if (isCallStackComplete(callStack))
+          yieldValidCallStack(callStack)
         else
           ().pure[F]
       }
 
-    private def isInitialState(callStack: CallStack): Boolean = {}
-
-    private def yieldInitialState(callStack: CallStack): F[Unit] =
-      validCallStacksRef.update(_.add(callStack))
-
-    private def addConstraints(constraints: List[Constraint]): CompilationTreeT[OptionT, Unit] =
-      constraints.traverse_(addConstraint)
-
-    private def addConstraint(constraint: Constraint): CompilationTreeT[OptionT, Unit] = {
-      // Return NONE when variables exceed graph.maxVariables
+    private def isCallStackComplete(callStack: CallStack): Boolean = {
+      // Are all stack frames initial?
+      // No!
+      // When are they initial then?...
     }
 
-    private def addTerminal(terminal: Terminal): CompilationTreeT[OptionT, Unit] =
-      terminal match {
-        case Success            => ().pure[CompilationTreeT[OptionT, *]]
-        case continue: Continue => ??? // Return NONE when variables exceed graph.maxVariables
-      }
+    private def yieldValidCallStack(callStack: CallStack): F[Unit] =
+      validCallStacksRef.update(_.add(callStack))
+
   }
 
   /**

@@ -48,7 +48,7 @@ object ChocoState {
     def resourceWithSolver(implicit S: Sync[F]): Resource[F, (ChocoState, Solver)] =
       for {
         choco  <- chocoRef.resource
-        solver <- Resource.make(choco.model.getSolver.pure[F])(_.hardReset().pure[F]) // Todo: will 'reset' work here?
+        solver <- Resource.make(choco.model.getSolver.pure[F])(_.hardReset().pure[F])
       } yield choco -> solver
 
   }
