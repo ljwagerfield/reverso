@@ -2,7 +2,8 @@ package reverso.demo
 
 import reverso.PredicateAST.Assignment.{Assign, Unassign}
 import reverso.PredicateAST.Constant.{BooleanConstant, IntConstant}
-import reverso.PredicateAST.Constraint._
+import reverso.PredicateAST.Constraint.Existential._
+import reverso.PredicateAST.Constraint.Relational._
 import reverso.PredicateAST.Terminal.{Continue, Success}
 import reverso.PredicateAST.Variable.{Field, Head, Tail}
 import reverso.PredicateAST.{FieldName, PredicateBody, PredicateDefinition, PredicateSignature}

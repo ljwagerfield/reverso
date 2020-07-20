@@ -83,31 +83,47 @@ object PredicateAST {
 
   sealed trait Constraint
 
-  // Denormalized to a flat structure by excluding Not() from the AST.
-  // This prevents us from having to recursively simplify and translate negations.
+  // Note: This type hierarchy was intentionally flattened/denormalized to make it easier to reason with.
+  //       Thus a 'Not()' type does not exist.
   object Constraint {
-    case class IsDefined(field: Field)                      extends Constraint
-    case class NotDefined(field: Field)                     extends Constraint
-    case class IsNull(field: Assignable)                    extends Constraint
-    case class NotNull(field: Assignable)                   extends Constraint
-    case class IsInt(field: Assignable)                     extends Constraint
-    case class NotInt(field: Assignable)                    extends Constraint
-    case class IsDouble(field: Assignable)                  extends Constraint
-    case class NotDouble(field: Assignable)                 extends Constraint
-    case class IsBoolean(field: Assignable)                 extends Constraint
-    case class NotBoolean(field: Assignable)                extends Constraint
-    case class IsComplex(field: Assignable)                 extends Constraint
-    case class NotComplex(field: Assignable)                extends Constraint
-    case class IsArray(field: Assignable)                   extends Constraint
-    case class NotArray(field: Assignable)                  extends Constraint
-    case class IsEmpty(field: Variable)                     extends Constraint // Can only be used on arrays, not objects.
-    case class NotEmpty(field: Variable)                    extends Constraint
-    case class IsEqual(left: Assignable, right: Relatable)  extends Constraint
-    case class NotEqual(left: Assignable, right: Relatable) extends Constraint
-    case class LT(left: Assignable, right: Relatable)       extends Constraint
-    case class LTE(left: Assignable, right: Relatable)      extends Constraint
-    case class GT(left: Assignable, right: Relatable)       extends Constraint
-    case class GTE(left: Assignable, right: Relatable)      extends Constraint
+
+    /**
+      * Constrains whether an object exists or not, and if it does, what type it exists as.
+      */
+    sealed trait Existential extends Constraint
+
+    object Existential {
+      case class IsDefined(field: Field)       extends Existential
+      case class NotDefined(field: Field)      extends Existential
+      case class IsNull(field: Assignable)     extends Existential
+      case class NotNull(field: Assignable)    extends Existential
+      case class IsInt(field: Assignable)      extends Existential
+      case class NotInt(field: Assignable)     extends Existential
+      case class IsDouble(field: Assignable)   extends Existential
+      case class NotDouble(field: Assignable)  extends Existential
+      case class IsBoolean(field: Assignable)  extends Existential
+      case class NotBoolean(field: Assignable) extends Existential
+      case class IsComplex(field: Assignable)  extends Existential
+      case class NotComplex(field: Assignable) extends Existential
+      case class IsArray(field: Assignable)    extends Existential
+      case class NotArray(field: Assignable)   extends Existential
+      case class IsEmpty(field: Variable)      extends Existential // Can only be used on arrays, not objects.
+      case class NotEmpty(field: Variable)     extends Existential
+    }
+
+    /**
+      * Constrains two or more objects to have values that relate in some way.
+      */
+    sealed trait Relational extends Constraint
+
+    object Relational {
+      case class IsEqual(left: Assignable, right: Relatable)  extends Relational
+      case class NotEqual(left: Assignable, right: Relatable) extends Relational
+      case class LT(left: Assignable, right: Relatable)       extends Relational
+      case class LTE(left: Assignable, right: Relatable)      extends Relational
+      case class GT(left: Assignable, right: Relatable)       extends Relational
+      case class GTE(left: Assignable, right: Relatable)      extends Relational
+    }
   }
 
   sealed trait Assignment
