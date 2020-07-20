@@ -14,7 +14,7 @@ import reverso.common.RefPessimistic
   */
 class PredicateModel[F[_]: Concurrent](
   chocoRef: RefPessimistic[F, ChocoState],
-  completedCallStacks: Vector[CallStack],
+  validCallStacks: Vector[CallStack],
   currentCallStack: IntVariable
 ) {
 
@@ -38,7 +38,7 @@ class PredicateModel[F[_]: Concurrent](
                 Option.when(solver.solve()) {
                   // Todo: Traverse 'pointers' objects below, and construct 'SolvedObject' from it, resolving the
                   //   *Variables in the 'pointers' objects to *Vars in the 'choco' instance.
-                  val callStack                        = completedCallStacks(choco.ints(currentCallStack).getValue)
+                  val callStack                        = validCallStacks(choco.ints(currentCallStack).getValue)
                   val pointers                         = callStack.pointers
                   val structuredSolution: SolvedObject = ???
                   structuredSolution

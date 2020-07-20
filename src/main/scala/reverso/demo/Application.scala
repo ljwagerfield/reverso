@@ -14,8 +14,11 @@ object Application extends IOApp {
 
   private def printSolutions(function: PredicateDefinition, variableLimit: UInt): IO[ExitCode] =
     for {
-      model <- new PredicateCompiler[IO]().compile(function, variableLimit)
-      _     <- model.solutions.use(_.map(_.toString).showLinesStdOut.compile.drain)
+      modelMaybe <- new PredicateCompiler[IO]().compile(function, variableLimit).value
+      _ <- modelMaybe match {
+             case Right(model) => model.solutions.use(_.map(_.toString).showLinesStdOut.compile.drain)
+             case Left(error)  => IO(println(s"Error: $error"))
+           }
     } yield ExitCode.Success
 
 }
