@@ -17,8 +17,10 @@ class VariablePool[F[_]: Sync](
   maxPoolSize: UInt,
   nextVariableId: Ref[F, VariableId]
 ) {
-  def size: F[Int] = chocoRef.accessSync(_.model.getNbVars)
 
+  /**
+    * Allocates a boolean variable, if the pool has capacity.
+    */
   def allocateBoolean: EitherT[F, VariableLimitReached.type, BooleanVariable] =
     allocate(
       _.booleans,
@@ -26,18 +28,65 @@ class VariablePool[F[_]: Sync](
       (model, id) => model.boolVar(s"BooleanVariable(${id.value})")
     )
 
-  def allocateInt: EitherT[F, VariableLimitReached.type, IntVariable] =
+  /**
+    * Allocates a boolean variable, increasing the pool's capacity if needed.
+    */
+  def allocateBooleanIgnoreLimit: F[BooleanVariable] =
+    allocateIgnoreLimit(
+      _.booleans,
+      BooleanVariable,
+      (model, id) => model.boolVar(s"BooleanVariable(${id.value})")
+    )
+
+  /**
+    * Allocates an integer variable, if the pool has capacity.
+    */
+  def allocateInt(
+    lowerBoundInclusive: Int,
+    upperBoundInclusive: Int
+  ): EitherT[F, VariableLimitReached.type, IntVariable] =
     allocate(
       _.ints,
       IntVariable,
-      (model, id) => model.intVar(s"IntVariable(${id.value})", -10000000, 10000000)
+      (model, id) => model.intVar(s"IntVariable(${id.value})", lowerBoundInclusive, upperBoundInclusive)
     )
 
-  def allocateDouble: EitherT[F, VariableLimitReached.type, DoubleVariable] =
+  /**
+    * Allocates an integer variable, increasing the pool's capacity if needed.
+    */
+  def allocateIntIgnoreLimit(lowerBoundInclusive: Int, upperBoundInclusive: Int): F[IntVariable] =
+    allocateIgnoreLimit(
+      _.ints,
+      IntVariable,
+      (model, id) => model.intVar(s"IntVariable(${id.value})", lowerBoundInclusive, upperBoundInclusive)
+    )
+
+  /**
+    * Allocates a double variable, if the pool has capacity.
+    */
+  def allocateDouble(
+    lowerBoundInclusive: Double,
+    upperBoundInclusive: Double,
+    precision: Double
+  ): EitherT[F, VariableLimitReached.type, DoubleVariable] =
     allocate(
       _.doubles,
       DoubleVariable,
-      (model, id) => model.realVar(s"DoubleVariable(${id.value})", -100D, 100D, 0.00001D)
+      (model, id) => model.realVar(s"DoubleVariable(${id.value})", lowerBoundInclusive, upperBoundInclusive, precision)
+    )
+
+  /**
+    * Allocates a double variable, increasing the pool's capacity if needed.
+    */
+  def allocateDoubleIgnoreLimit(
+    lowerBoundInclusive: Double,
+    upperBoundInclusive: Double,
+    precision: Double
+  ): F[DoubleVariable] =
+    allocateIgnoreLimit(
+      _.doubles,
+      DoubleVariable,
+      (model, id) => model.realVar(s"DoubleVariable(${id.value})", lowerBoundInclusive, upperBoundInclusive, precision)
     )
 
   private def allocate[A, B](
@@ -47,16 +96,35 @@ class VariablePool[F[_]: Sync](
   ): EitherT[F, VariableLimitReached.type, A] = {
     type Error = VariableLimitReached.type
     chocoRef.resource.mapK(EitherT.liftK[F, Error]).use { choco =>
+      val variableCount = choco.model.getNbVars
       for {
-        variableCount <- size.asRightLifted[Error]
-        _             <- EitherT.cond[F](variableCount < maxPoolSize, (), VariableLimitReached)
-        variableId    <- getAndIncVariableId.asRightLifted[Error]
-        internal       = allocateInternalVariable(choco.model, variableId)
-        external       = makeExternalVariable(variableId)
-        _              = map(choco).update(external, internal)
+        _        <- EitherT.cond[F](variableCount < maxPoolSize, (), VariableLimitReached)
+        external <- allocateIgnoreLimit(map, makeExternalVariable, allocateInternalVariable, choco).asRightLifted[Error]
       } yield external
     }
   }
+
+  private def allocateIgnoreLimit[A, B](
+    map: ChocoState => mutable.Map[A, B],
+    makeExternalVariable: VariableId => A,
+    allocateInternalVariable: (Model, VariableId) => B
+  ): F[A] =
+    chocoRef.resource.use(
+      allocateIgnoreLimit(map, makeExternalVariable, allocateInternalVariable, _)
+    )
+
+  private def allocateIgnoreLimit[A, B](
+    map: ChocoState => mutable.Map[A, B],
+    makeExternalVariable: VariableId => A,
+    allocateInternalVariable: (Model, VariableId) => B,
+    choco: ChocoState
+  ): F[A] =
+    for {
+      variableId <- getAndIncVariableId
+      internal    = allocateInternalVariable(choco.model, variableId)
+      external    = makeExternalVariable(variableId)
+      _           = map(choco).update(external, internal)
+    } yield external
 
   private def getAndIncVariableId: F[VariableId] =
     nextVariableId.modify(current => VariableId(current.value + 1) -> current)
@@ -64,9 +132,7 @@ class VariablePool[F[_]: Sync](
 
 object VariablePool {
   def empty[F[_]: Concurrent](choco: RefPessimistic[F, ChocoState], maxPoolSize: UInt): F[VariablePool[F]] =
-    for {
-      nextVariableId <- Ref.of(VariableId(0))
-    } yield new VariablePool[F](choco, maxPoolSize, nextVariableId)
+    Ref.of(VariableId(0)).map(initialVariableId => new VariablePool[F](choco, maxPoolSize, initialVariableId))
 
   object Errors {
     case object VariableLimitReached

@@ -21,7 +21,7 @@ class PredicateCompiler[F[_]: Concurrent] {
     *
     * @param predicate     Predicate definition.
     * @param variableLimit The maximum number of variables that can be allocated on the heap by your predicate.
-    *                      Larger values will allow the model to produce larger (and thus more permutations of) inputs.
+    *                      Larger values allow the model to produce larger (and thus more permutations of) inputs.
     *
     * @return              Predicate model: use this to generate inputs that satisfy your predicate.
     */
@@ -29,11 +29,14 @@ class PredicateCompiler[F[_]: Concurrent] {
     for {
       choco                  <- ChocoState.empty()
       pool                   <- VariablePool.empty(choco, variableLimit + 1) // + 1 for 'currentCallStack' below.
-      currentCallStack       <- pool.allocateInt.assertRight
       completedCallStacksRef <- Ref.of(CompletedCallStacks.empty)
       compilation             = new Compilation(predicate, pool, completedCallStacksRef)
       _                      <- compilation.run()
       completedCallStacks    <- completedCallStacksRef.get
+      currentCallStack <- pool.allocateIntIgnoreLimit(
+                            lowerBoundInclusive = 0,
+                            upperBoundInclusive = completedCallStacks.values.length - 1
+                          )
     } yield new PredicateModel[F](choco, completedCallStacks.values.toVector, currentCallStack)
 
   /**
