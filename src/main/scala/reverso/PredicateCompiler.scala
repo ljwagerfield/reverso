@@ -5,6 +5,7 @@ import cats.data.{EitherT, NonEmptyList, OptionT, StateT}
 import cats.effect.Concurrent
 import cats.effect.concurrent.Ref
 import cats.implicits._
+import org.chocosolver.solver.constraints.extension.Tuples
 import reverso.PredicateAST.Terminal.{Continue, Success}
 import reverso.PredicateAST.{Assignment, Constraint, PredicateDefinition, Terminal}
 import reverso.PredicateCompiler.Errors.NoSolutionsFound
@@ -30,11 +31,12 @@ class PredicateCompiler[F[_]: Concurrent] {
   ): EitherT[F, NoSolutionsFound.type, PredicateModel[F]] = {
     type Error = NoSolutionsFound.type
     for {
-      compilerContext  <- newCompilerContext(predicate, variableLimit).asRightLifted[Error]
-      _                <- compilerContext.generateValidCallStacks().asRightLifted[Error]
-      validCallStacks  <- compilerContext.getValidCallStacks
-      currentCallStack <- compilerContext.allocateCurrentStackIndexVariable(validCallStacks.size).asRightLifted[Error]
-    } yield new PredicateModel[F](compilerContext.chocoRef, validCallStacks.toList.toVector, currentCallStack)
+      compilerContext <- newCompilerContext(predicate, variableLimit).asRightLifted[Error]
+      _               <- compilerContext.generateValidCallStacks().asRightLifted[Error]
+      validCallStacks <- compilerContext.getValidCallStacks
+      callStackIndex  <- compilerContext.allocateCallStackIndex(validCallStacks.size).asRightLifted[Error]
+      _               <- compilerContext.limitOneCallStackPerSolution(callStackIndex, validCallStacks.toList).asRightLifted[Error]
+    } yield new PredicateModel[F](compilerContext.chocoRef, validCallStacks.toList.toVector, callStackIndex)
   }
 
   /**
@@ -65,6 +67,8 @@ class PredicateCompiler[F[_]: Concurrent] {
       * Saves results to [[validCallStacksRef]].
       */
     def generateValidCallStacks(): F[Unit] = {
+      // Todo: Remove all constraints and variables added by WIP call stacks that never became valid call stacks.
+      //       Do this by calling 'removeStackFramesFromModel(unusedStackFrames)'. Calculate 'unusedStackFrames' first!
       val compilationTree = processStatementsUntilPoolSaturated()
       val wipCallStacks   = compilationTree.run(CallStack.empty)
       wipCallStacks.value.void
@@ -81,11 +85,47 @@ class PredicateCompiler[F[_]: Concurrent] {
         } yield validCallStacksNel.toRight(NoSolutionsFound)
       )
 
-    def allocateCurrentStackIndexVariable(validCallStackCount: Int): F[IntVariable] =
+    def allocateCallStackIndex(validCallStackCount: Int): F[IntVariable] =
       pool.allocateIntIgnoreLimit(
         lowerBoundInclusive = 0,
         upperBoundInclusive = validCallStackCount - 1
       )
+
+    /**
+      * Constrain the reification variables used to activate stack frames, such that stack frames can only be enabled in
+      * combinations that represent valid call stacks.
+      */
+    def limitOneCallStackPerSolution(callStackIndex: IntVariable, callStacks: List[CallStack]): F[Unit] = {
+      // Create a set of bit masks: each bit mask represents a call stack, and the bits represent which stack frames
+      // it contains (1) and does not contain (0), thus creating a binary matrix of x=stack frames and y=call stacks.
+      val allStackFrames = callStacks.flatMap(_.frames).distinct // Call stacks will share some common frames.
+      val callStackBitMasks =
+        callStacks.zipWithIndex.map {
+          case (callStack, callStackIndex) =>
+            val callStackFrames = callStack.frames.toSet
+            val callStackBitMask =
+              allStackFrames.map { stackFrame =>
+                if (callStackFrames.contains(stackFrame))
+                  1
+                else
+                  0
+              }
+
+            // There is an additional initial column that stores the selected row index at solution time to a variable.
+            (callStackIndex :: callStackBitMask).toArray
+        }
+
+      // Create a Choco table from the set of bitmasks.
+      val table = new Tuples(true)
+      table.add(callStackBitMasks: _*)
+
+      // Add as a table constraint to Choco.
+      chocoRef.accessSync { choco =>
+        val stackFrameSwitches = allStackFrames.map(_.constraintSwitch).collect(choco.booleans)
+        val tableVariables     = choco.ints(callStackIndex) :: stackFrameSwitches
+        choco.model.table(tableVariables.toArray, table).post()
+      }
+    }
 
     private def processStatementsUntilPoolSaturated(): CompilationTreeT[ListT, Unit] = {
       val (continue, success) =
@@ -146,7 +186,14 @@ class PredicateCompiler[F[_]: Concurrent] {
     }
 
     private def filterConsistentStatements: CompilationTreeT[OptionT, Unit] =
-      CompilationTreeT(callStack => OptionT.whenF(isCallStackConsistent(callStack))(callStack -> ()))
+      CompilationTreeT(callStack =>
+        OptionT.whenF(
+          for {
+            isConsistent <- isCallStackConsistent(callStack)
+            _            <- if (!isConsistent) removeStackFramesFromModel(callStack.frames.take(1)) else ().pure[F]
+          } yield isConsistent
+        )(callStack -> ())
+      )
 
     private def isCallStackConsistent(callStack: CallStack): F[Boolean] = {
       val stackFrames = callStack.frames.map(_.constraintSwitch)
@@ -154,7 +201,8 @@ class PredicateCompiler[F[_]: Concurrent] {
         val model              = choco.model
         val solver             = model.getSolver
         val stackFrameSwitches = stackFrames.collect(choco.booleans)
-        val setSwitches        = stackFrameSwitches.map(x => x.eq(1).decompose())
+        val setSwitches        = stackFrameSwitches.map(_.eq(1).decompose())
+        // Todo: set all other switches to 0!
         model.post(setSwitches: _*)
         val isValid = solver.solve()
         solver.hardReset()
@@ -162,6 +210,11 @@ class PredicateCompiler[F[_]: Concurrent] {
         isValid
       }
     }
+
+    private def removeStackFramesFromModel(stackFrames: List[StackFrame]): F[Unit] =
+      chocoRef.accessSync { choco =>
+        // Todo: Remove all variables and constraints introduced by each of these stack frames.
+      }
 
     private def ifCallStackCompleteYield: CompilationTree[Unit] =
       CompilationTree.get.flatMapF { callStack =>
@@ -175,6 +228,7 @@ class PredicateCompiler[F[_]: Concurrent] {
       // Are all stack frames initial?
       // No!
       // When are they initial then?...
+      // TODO: Solve this first! It will impact how the 'addAssignment' method is implemented if our approach changes.
     }
 
     private def yieldValidCallStack(callStack: CallStack): F[Unit] =

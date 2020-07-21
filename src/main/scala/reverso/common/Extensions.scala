@@ -32,6 +32,6 @@ object Extensions {
 
   implicit class RichOptionTCompanion(val value: OptionT.type) extends AnyVal {
     def whenF[F[_]: Functor, A](cond: F[Boolean])(a: => A): OptionT[F, A] =
-      OptionT(cond.map(bool => Option.when(bool)(a)))
+      OptionT(cond.map(Option.when(_)(a)))
   }
 }
