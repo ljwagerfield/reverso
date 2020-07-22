@@ -1,6 +1,7 @@
 package reverso
 
-import reverso.PredicateAST.Variable.Field
+import reverso.PredicateAST.Value._
+import reverso.PredicateAST.Value.Variable.Field
 
 /**
   * Abstract syntax tree (AST) for defining predicates (functions that return a boolean).
@@ -48,37 +49,48 @@ object PredicateAST {
   case class ParameterName(value: String)
   case class FieldName(value: String)
 
-  sealed trait Relatable
+  /**
+    * Value that can appear on the RHS of (in)equalities and assignments.
+    *
+    * May be an scalar, array or complex object.
+    */
+  sealed trait Value
 
-  sealed trait Constant extends Relatable
+  object Value {
+    sealed trait Constant extends Value
 
-  object Constant {
-    case class IntConstant(value: Int)       extends Constant
-    case class DoubleConstant(value: Double) extends Constant
-//    case class CharConstant(value: Char)       extends Constant
-//    case class ByteConstant(value: Byte)       extends Constant
-    case class BooleanConstant(value: Boolean) extends Constant
-    case object Null                           extends Constant
-//    case class StringConstant(value: String)   extends Constant
-  }
+    object Constant {
+      case class IntConstant(value: Int)         extends Constant
+      case class DoubleConstant(value: Double)   extends Constant
+      case class BooleanConstant(value: Boolean) extends Constant
+      case object Null                           extends Constant
+    }
 
-  sealed trait Assignable
-  sealed trait Variable extends Relatable
+    sealed trait Assignable
+    sealed trait Variable extends Value
 
-  object Variable {
-    case class Field(parent: Option[Assignable], name: FieldName) extends Variable with Assignable
-    case class Head(variable: Variable)                           extends Variable with Assignable
-    case class Tail(variable: Variable)                           extends Variable
-    case class ObjectEntries(variable: Assignable)                extends Variable // Array of {"key":_, "value":_}
-  }
+    object Variable {
+      case class Field(parent: Option[Assignable], name: FieldName) extends Variable with Assignable
+      case class Head(variable: Variable)                           extends Variable with Assignable
+      case class Tail(variable: Variable)                           extends Variable
+      case class ObjectEntries(variable: Assignable)                extends Variable // Array of {"key":_, "value":_}
+    }
 
-  sealed trait BasicAlgebra extends Relatable
+    sealed trait TypeCast extends Value
 
-  object BasicAlgebra {
-    case class Add(left: Relatable, right: Relatable)      extends BasicAlgebra
-    case class Subtract(left: Relatable, right: Relatable) extends BasicAlgebra
-    case class Multiply(left: Relatable, right: Relatable) extends BasicAlgebra
-    case class Divide(left: Relatable, right: Relatable)   extends BasicAlgebra
+    object TypeCast {
+      case class AsInt(number: Value)    extends TypeCast
+      case class AsDouble(number: Value) extends TypeCast
+    }
+
+    sealed trait BasicAlgebra extends Value
+
+    object BasicAlgebra {
+      case class Add(left: Value, right: Value)      extends BasicAlgebra
+      case class Subtract(left: Value, right: Value) extends BasicAlgebra
+      case class Multiply(left: Value, right: Value) extends BasicAlgebra
+      case class Divide(left: Value, right: Value)   extends BasicAlgebra
+    }
   }
 
   sealed trait Constraint
@@ -97,6 +109,8 @@ object PredicateAST {
       case class NotDefined(field: Field)      extends Existential
       case class IsNull(field: Assignable)     extends Existential
       case class NotNull(field: Assignable)    extends Existential
+      case class IsNumber(field: Assignable)   extends Existential // Superset of IsInt/IsDouble
+      case class NotNumber(field: Assignable)  extends Existential
       case class IsInt(field: Assignable)      extends Existential
       case class NotInt(field: Assignable)     extends Existential
       case class IsDouble(field: Assignable)   extends Existential
@@ -117,20 +131,20 @@ object PredicateAST {
     sealed trait Relational extends Constraint
 
     object Relational {
-      case class IsEqual(left: Assignable, right: Relatable)  extends Relational
-      case class NotEqual(left: Assignable, right: Relatable) extends Relational
-      case class LT(left: Assignable, right: Relatable)       extends Relational
-      case class LTE(left: Assignable, right: Relatable)      extends Relational
-      case class GT(left: Assignable, right: Relatable)       extends Relational
-      case class GTE(left: Assignable, right: Relatable)      extends Relational
+      case class IsEqual(left: Assignable, right: Value)  extends Relational
+      case class NotEqual(left: Assignable, right: Value) extends Relational
+      case class LT(left: Assignable, right: Value)       extends Relational
+      case class LTE(left: Assignable, right: Value)      extends Relational
+      case class GT(left: Assignable, right: Value)       extends Relational
+      case class GTE(left: Assignable, right: Value)      extends Relational
     }
   }
 
   sealed trait Assignment
   object Assignment {
-    case class Prepend(array: Variable, element: Relatable) extends Assignment
-    case class Assign(target: Field, newValue: Relatable)   extends Assignment
-    case class Unassign(target: Field)                      extends Assignment
+    case class Prepend(target: Field, array: Variable, element: Value) extends Assignment
+    case class Assign(target: Field, newValue: Value)                  extends Assignment
+    case class Unassign(target: Field)                                 extends Assignment
   }
 
   sealed trait Terminal
