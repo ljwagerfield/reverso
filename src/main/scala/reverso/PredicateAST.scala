@@ -52,7 +52,7 @@ object PredicateAST {
   /**
     * Value that can appear on the RHS of (in)equalities and assignments.
     *
-    * May be an scalar, array or complex object.
+    * May be a scalar, array or complex object.
     */
   sealed trait Value
 
@@ -140,7 +140,17 @@ object PredicateAST {
     }
   }
 
+  /**
+    * Assignments do not mutate state. Instead, they work like Scala's 'copy' method on case classes. Imagine a single
+    * complex object called 'memory' that holds all variables: the assignments below get translated to a series of 'copy'
+    * operations that are applied to 'memory' and the resulting 'memory' object is passed to the next stack frame.
+    *
+    * Therefore, if a stack frame assigns the complex object 'x' to fields 'y' and 'z', and the subsequent stack frame
+    * assigns new values to fields on 'y', then 'y' and 'z' will contain different values (i.e. 'z' will contain the
+    * old values, and 'y' will contain the updated values, rather than 'y' and 'z' both containing the updated values).
+    */
   sealed trait Assignment
+
   object Assignment {
     case class Prepend(target: Field, array: Variable, element: Value) extends Assignment
     case class Assign(target: Field, newValue: Value)                  extends Assignment

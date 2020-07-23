@@ -1,7 +1,7 @@
 package reverso
 
-case class CallStack(frames: List[StackFrame], pointers: PointerGraph)
+case class CallStack(frames: List[StackFrame], pointers: UndefinedPointerGraph)
 
 object CallStack {
-  val empty: CallStack = CallStack(Nil, PointerGraph.empty)
+  val empty: CallStack = CallStack(Nil, UndefinedPointerGraph.empty)
 }

@@ -9,6 +9,8 @@ import org.chocosolver.solver.constraints.extension.Tuples
 import reverso.PredicateAST.Terminal.{Continue, Success}
 import reverso.PredicateAST.{Assignment, Constraint, PredicateDefinition, Terminal}
 import reverso.PredicateCompiler.Errors.NoSolutionsFound
+import reverso.UndefinedPointerGraph.FieldValue
+import reverso.UndefinedPointerGraph.FieldValue.{Defined, DefinedAs, Undefined}
 import reverso.Variables.IntVariable
 import reverso.common.Extensions._
 import reverso.common.MapK.{fToListT => fromF, optionTtoListT => fromOption}
@@ -202,6 +204,7 @@ class PredicateCompiler[F[_]: Concurrent] {
         val solver             = model.getSolver
         val stackFrameSwitches = stackFrames.collect(choco.booleans)
         val setSwitches        = stackFrameSwitches.map(_.eq(1).decompose())
+        // Todo: check validity of existential assertions (e.g. if stack(end) asserts isNull(x) and stack(end-1) asserts notNull(x), and no assignments in between, then inconsistent.
         // Todo: set all other switches to 0!
         model.post(setSwitches: _*)
         val isValid = solver.solve()
@@ -225,10 +228,15 @@ class PredicateCompiler[F[_]: Concurrent] {
       }
 
     private def isCallStackComplete(callStack: CallStack): Boolean = {
-      // Are all stack frames initial?
-      // No!
-      // When are they initial then?...
-      // TODO: Solve this first! It will impact how the 'addAssignment' method is implemented if our approach changes.
+      val inputs             = predicate.signature.inputs
+      val undefinedValues    = callStack.pointers.root.fields
+      val undefinedRegisters = undefinedValues.filterNot { case (field, _) => inputs.contains(field) }.values
+      val allRegistersAreExpectedToBeUndefined =
+        undefinedRegisters.forall {
+          case Undefined              => true
+          case Defined | _: DefinedAs => false
+        }
+      allRegistersAreExpectedToBeUndefined
     }
 
     private def yieldValidCallStack(callStack: CallStack): F[Unit] =
