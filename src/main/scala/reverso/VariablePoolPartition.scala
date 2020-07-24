@@ -1,5 +1,7 @@
 package reverso
 
+import cats.Eq
+
 /**
   * Describes which partition of the pool a variable exists in.
   *
@@ -13,6 +15,7 @@ package reverso
 sealed trait VariablePoolPartition
 
 object VariablePoolPartition {
+  implicit val eq: Eq[VariablePoolPartition] = Eq.fromUniversalEquals
 
   /**
     * Meta variables declared by our code.

@@ -39,7 +39,7 @@ class PredicateCompiler[F[_]: Concurrent] {
       _               <- compilerContext.generateValidCallStacks().asRightLifted[Error]
       validCallStacks <- compilerContext.getValidCallStacks
       callStackIndex  <- compilerContext.allocateCallStackIndex(validCallStacks.size).asRightLifted[Error]
-      _               <- compilerContext.limitOneCallStackPerSolution(validCallStacks.toList, callStackIndex).asRightLifted[Error]
+      _               <- compilerContext.limitOneCallStackPerSolution(validCallStacks, callStackIndex).asRightLifted[Error]
     } yield new PredicateModel[F](compilerContext.chocoRef, validCallStacks.toList.toVector, callStackIndex)
   }
 
@@ -174,54 +174,28 @@ class PredicateCompiler[F[_]: Concurrent] {
       * combinations that represent valid call stacks. Also zeros all variables not in use by each call stack (preventing
       * the solver from wasting time permeating an unused set of variables).
       */
-    def limitOneCallStackPerSolution(callStacks: List[CallStack], callStackIndex: IntVariable): F[Unit] =
+    def limitOneCallStackPerSolution(callStacks: NonEmptyList[CallStack], callStackIndex: IntVariable): F[Unit] =
       limitOneCallStackPerSolution(callStacks, Some(callStackIndex), keepConstraints = true).use(_.pure[F].void)
 
     private def limitOneCallStackPerSolutionTemp(callStack: CallStack): Resource[F, Solver] =
-      limitOneCallStackPerSolution(List(callStack), None, keepConstraints = false)
+      limitOneCallStackPerSolution(NonEmptyList.one(callStack), None, keepConstraints = false)
 
     // Zero variables by adding them to table as 0s for each variable that wasn't acquired, and STAR for those that were.
     // Requires us to maintain an exclusive pool of variables per call stack.
     private def limitOneCallStackPerSolution(
-      callStacks: List[CallStack],
+      callStacks: NonEmptyList[CallStack],
       callStackIndexVariable: Option[IntVariable],
       keepConstraints: Boolean
-    ): Resource[F, Solver] = {
-      // Create a set of bit masks: each bit mask represents a call stack, and the bits represent which stack frames
-      // it contains (1) and does not contain (0), thus creating a binary matrix of x=stack frames and y=call stacks.
-      val allStackFrames = callStacks.flatMap(_.frames).distinct // Call stacks will share some common frames.
-      val callStackBitMasks =
-        callStacks.zipWithIndex.map {
-          case (callStack, callStackIndex) =>
-            val callStackFrames = callStack.frames.toSet
-            val callStackBitMask =
-              allStackFrames.map { stackFrame =>
-                if (callStackFrames.contains(stackFrame))
-                  1
-                else
-                  0
-              }
-
-            // There is an additional initial column that stores the selected row index at solution time to a variable.
-            (callStackIndexVariable.as(callStackIndex).toList ::: callStackBitMask).toArray
-        }
-
-      // Create a Choco table from the set of bitmasks.
-      val table = new Tuples(true)
-      table.add(callStackBitMasks: _*)
-
-      // Add as a table constraint to Choco.
+    ): Resource[F, Solver] =
       for {
-        chocoWithSolver   <- chocoRef.resourceWithSolver
-        (choco, solver)    = chocoWithSolver
-        stackFrameSwitches = allStackFrames.map(_.constraintSwitch).collect(choco.booleans)
-        tableVariables     = callStackIndexVariable.map(choco.ints).toList ::: stackFrameSwitches
-        tableConstraint    = choco.model.table(tableVariables.toArray, table)
-        addConstraint      = Sync[F].delay(choco.model.post(tableConstraint))
-        removeConstraint   = Sync[F].delay(choco.model.unpost(tableConstraint))
-        _                 <- Resource.make(addConstraint)(_ => if (keepConstraints) ().pure[F] else removeConstraint)
+        chocoWithSolver <- chocoRef.resourceWithSolver
+        (choco, solver)  = chocoWithSolver
+        variableMasks    = VariableMaskSet.from(choco, callStacks, callStackIndexVariable)
+        constraints      = variableMasks.toConstraints(choco)
+        addConstraint    = Sync[F].delay(choco.model.post(constraints: _*))
+        removeConstraint = Sync[F].delay(choco.model.unpost(constraints: _*))
+        _               <- Resource.make(addConstraint)(_ => if (keepConstraints) ().pure[F] else removeConstraint)
       } yield solver
-    }
 
     private def removeStackFramesFromModel(stackFrames: List[StackFrame]): F[Unit] =
       chocoRef.accessSync { choco =>

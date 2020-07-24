@@ -66,7 +66,10 @@ class VariablePool[F[_]: Sync](
   /**
     * Allocates the variable if it does not yet exist in the pool, else does nothing.
     */
-  private def issueVariable[A, B](variableRef: VariableRef[A], map: ChocoState => mutable.Map[VariableRef[A], B])(
+  private def issueVariable[A <: VariableType, B](
+    variableRef: VariableRef[A],
+    map: ChocoState => mutable.Map[VariableRef[A], B]
+  )(
     allocateChocoVariable: (Model, VariableRef[A]) => B
   ): EitherT[F, VariablePoolError, Unit] =
     EitherT(
@@ -96,7 +99,7 @@ class VariablePool[F[_]: Sync](
   /**
     * Increments the allocation counter if required (returns None if no increment is required).
     */
-  private def incrementAllocationCount[A](
+  private def incrementAllocationCount[A <: VariableType](
     oldCounter: VariableCounter,
     variableRef: VariableRef[A]
   ): OptionT[Either[VariablePoolError, *], VariableCounter] =

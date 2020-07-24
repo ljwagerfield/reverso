@@ -1,3 +1,3 @@
 package reverso
 
-case class VariableDefinition[A](partition: VariablePoolPartition, variableType: A)
+case class VariableDefinition[+A](partition: VariablePoolPartition, variableType: A)
