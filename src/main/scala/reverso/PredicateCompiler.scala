@@ -10,9 +10,10 @@ import org.chocosolver.solver.constraints.extension.Tuples
 import reverso.PredicateAST.Terminal.{Continue, Success}
 import reverso.PredicateAST.{Assignment, Constraint, PredicateDefinition, Terminal}
 import reverso.PredicateCompiler.Errors.NoSolutionsFound
-import reverso.UndefinedPointerGraph.FieldValue
 import reverso.UndefinedPointerGraph.FieldValue.{Defined, DefinedAs, Undefined}
-import reverso.Variables.IntVariable
+import reverso.VariablePoolPartition.{MetaVariables, StackFrameVariables}
+import reverso.VariableRef.IntVariable
+import reverso.VariableType.IntVariableType
 import reverso.common.Extensions._
 import reverso.common.MapK.{fToListT => fromF, optionTtoListT => fromOption}
 import reverso.common.{ListT, RefPessimistic, UInt}
@@ -51,7 +52,7 @@ class PredicateCompiler[F[_]: Concurrent] {
   ): F[CompilerContext] =
     for {
       choco              <- ChocoState.empty()
-      pool               <- VariablePool.empty(choco, variableLimit + 1) // + 1 for 'currentCallStack' below.
+      pool               <- VariablePool.empty(choco, Map(StackFrameVariables -> variableLimit))
       validCallStacksRef <- Ref.of(ValidCallStacks.empty)
       compilation         = new CompilerContext(choco, pool, predicate, validCallStacksRef)
     } yield compilation
@@ -88,11 +89,14 @@ class PredicateCompiler[F[_]: Concurrent] {
         } yield validCallStacksNel.toRight(NoSolutionsFound)
       )
 
-    def allocateCallStackIndex(validCallStackCount: Int): F[IntVariable] =
-      pool.allocateIntIgnoreLimit(
-        lowerBoundInclusive = 0,
-        upperBoundInclusive = validCallStackCount - 1
-      )
+    def allocateCallStackIndex(validCallStackCount: Int): F[IntVariable] = {
+      val callStackIndexBounds = IntVariableType(0, validCallStackCount - 1)
+      val callStackIndex       = VariableRef(VariableDefinition(MetaVariables, callStackIndexBounds), 0)
+      pool
+        .issueInt(callStackIndex)
+        .assertRight
+        .as(callStackIndex)
+    }
 
     private def processStatementsUntilPoolSaturated(): CompilationTreeT[ListT, Unit] = {
       val (continue, success) =

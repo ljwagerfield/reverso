@@ -11,6 +11,9 @@ object Extensions {
 
     def asLeftLifted[E](implicit functor: Functor[F]): EitherT[F, A, E] =
       EitherT.left[E][F, A](value)
+
+    def someLifted(implicit functor: Functor[F]): OptionT[F, A] =
+      OptionT.liftF(value)
   }
 
   implicit class RichEitherT[F[_], A, B](val value: EitherT[F, A, B]) {

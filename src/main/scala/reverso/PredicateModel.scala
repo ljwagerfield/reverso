@@ -4,7 +4,7 @@ import cats.effect.{Concurrent, Resource}
 import cats.implicits._
 import fs2.Stream
 import reverso.SolvedValue.SolvedObject
-import reverso.Variables.IntVariable
+import reverso.VariableRef.IntVariable
 import reverso.common.RefPessimistic
 
 /**

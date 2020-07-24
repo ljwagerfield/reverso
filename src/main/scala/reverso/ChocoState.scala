@@ -4,7 +4,7 @@ import cats.effect.{Concurrent, Resource, Sync}
 import cats.implicits._
 import org.chocosolver.solver.{Model, Solver}
 import org.chocosolver.solver.variables.{BoolVar, IntVar, RealVar}
-import reverso.Variables.{BooleanVariable, DoubleVariable, IntVariable}
+import reverso.VariableRef.{BooleanVariable, DoubleVariable, IntVariable}
 import reverso.common.RefPessimistic
 
 import scala.collection.mutable

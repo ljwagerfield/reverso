@@ -2,7 +2,7 @@ package reverso
 
 import reverso.PredicateAST.FieldName
 import reverso.UndefinedPointerGraph.MemoryLocation.ComplexObject
-import reverso.Variables.{BooleanVariable, DoubleVariable, IntVariable}
+import reverso.VariableRef.{BooleanVariable, DoubleVariable, IntVariable}
 
 /**
   * An 'if' statement asserts that one or more variable definitions must have taken place in an ancestor stack frame.

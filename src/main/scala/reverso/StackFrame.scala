@@ -1,6 +1,6 @@
 package reverso
 
-import reverso.Variables.BooleanVariable
+import reverso.VariableRef.BooleanVariable
 
 /**
   * @param constraintSwitch Used to enable/disable constraints introduced by this stack frame to the single shared
