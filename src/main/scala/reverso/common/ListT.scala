@@ -16,8 +16,9 @@ import cats.implicits._
   * Addressing these issues: this implementation _does_ satisfy the monad laws (there is a cats-law test checked in),
   * and providing a stack-safe M[_] is used, it is stack-safe. The performance issues quoted probably relate more
   * fundamentally to the exponential nature of flat-mapping a list N times. If so, and if you cannot avoid this general
-  * concept in your code (e.g. you're building a tree, which is exponential by nature), then using ListT is probably no
-  * worse for performance than any alternative you might arrive at (bar micro-optimised alternatives).
+  * concept in your code (e.g. you're building a tree, which is exponential by nature), then ListT has an asymptotic
+  * performance that is no worse than any alternative you might arrive at (unless, of course, our implementation of
+  * ListT does some asymptotically expensive operations under-the-hood, such as appending to a List over and over!).
   *
   * Obeys the laws defined in cats.laws.MonadLaws: see 'ListTSpec'
   */
