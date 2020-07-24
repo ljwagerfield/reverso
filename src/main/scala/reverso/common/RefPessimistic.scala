@@ -5,9 +5,14 @@ import cats.effect.concurrent.{MVar, MVar2}
 import cats.implicits._
 
 /**
-  * Pessimistic (and cut-down) version of Ref.
+  * Provides mutexed (i.e. serial) access to a resource.
   *
-  * Useful for wrapping mutable objects from third-party APIs that cannot have 'modify' replayed to them multiple times.
+  * Differences between 'Ref' and 'RefPessimistic':
+  *
+  * 1.  'Ref' replays updates. 'RefPessimistic' does not: all thunks are invoked exactly once.
+  * 2.  'Ref' allows parallel reads. 'RefPessimistic' enforces serial reads.
+  *
+  * Useful for: wrapping mutable objects (e.g. from third-party APIs).
   *
   * See: https://typelevel.org/cats-effect/concurrency/mvar.html#use-case-asynchronous-lock-binary-semaphore-mutex
   */
