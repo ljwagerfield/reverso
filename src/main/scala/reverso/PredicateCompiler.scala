@@ -73,7 +73,7 @@ class PredicateCompiler[F[_]: Concurrent] {
     def generateValidCallStacks(): F[Unit] = {
       // Todo: Remove all constraints and variables added by WIP call stacks that never became valid call stacks.
       //       Do this by calling 'removeStackFramesFromModel(unusedStackFrames)'. Calculate 'unusedStackFrames' first!
-      val compilationTree = processStatementsUntilPoolSaturated()
+      val compilationTree = fanOutCallStacksUntilPoolSaturated()
       val wipCallStacks   = compilationTree.run(CallStack.empty)
       wipCallStacks.value.void
     }
@@ -98,30 +98,30 @@ class PredicateCompiler[F[_]: Concurrent] {
         .as(callStackIndex)
     }
 
-    private def processStatementsUntilPoolSaturated(): CompilationTreeT[ListT, Unit] = {
+    private def fanOutCallStacksUntilPoolSaturated(): CompilationTreeT[ListT, Unit] = {
       val (continue, success) =
         predicate.body.statements.toList.partitionEither {
           case (predicates, terminal @ Success) => (predicates -> terminal).asRight
           case (predicates, terminal: Continue) => (predicates -> terminal).asLeft
         }
       for {
-        _ <- processStatements(success)
-        _ <- ().tailRecM(_ => processStatements(continue).map(_.asLeft[Unit])) // Ends when variable pool saturates.
+        _ <- fanOutCallStacks(success)
+        _ <- ().tailRecM(_ => fanOutCallStacks(continue).map(_.asLeft[Unit])) // Ends when variable pool saturates.
       } yield ()
     }
 
-    private def processStatements(statements: List[(List[Constraint], Terminal)]): CompilationTreeT[ListT, Unit] =
+    private def fanOutCallStacks(stackFrames: List[(List[Constraint], Terminal)]): CompilationTreeT[ListT, Unit] =
       for {
-        _ <- addStatements(statements)
-        _ <- filterConsistentStatements.mapK(fromOption)
-        _ <- ifCallStackCompleteYield.mapK(fromF)
+        _ <- addParentStackFrames(stackFrames)
+        _ <- removeInconsistentCallStacks.mapK(fromOption)
+        _ <- yieldIfCallStackIsFinished.mapK(fromF)
       } yield ()
 
-    private def addStatements(statements: List[(List[Constraint], Terminal)]): CompilationTreeT[ListT, Unit] =
+    private def addParentStackFrames(stackFrames: List[(List[Constraint], Terminal)]): CompilationTreeT[ListT, Unit] =
       for {
-        // Todo: update current 'CallStack' to include new stack frame (after 'statement' line below).
-        statement              <- CompilationTreeT.fan(statements)
-        (constraints, terminal) = statement
+        // Todo: update current CallStack (in StateT) to include new stack frame (after 'fan' line below).
+        stackFrame             <- CompilationTreeT.fan(stackFrames)
+        (constraints, terminal) = stackFrame
         _                      <- addConstraints(constraints).mapK(fromOption)
         _                      <- addTerminal(terminal).mapK(fromOption)
       } yield ()
@@ -156,7 +156,7 @@ class PredicateCompiler[F[_]: Concurrent] {
       // - If the constraint is 'Relational': record the constraints in Choco.
     }
 
-    private def filterConsistentStatements: CompilationTreeT[OptionT, Unit] =
+    private def removeInconsistentCallStacks: CompilationTreeT[OptionT, Unit] =
       CompilationTreeT(callStack =>
         OptionT.whenF(
           for {
@@ -202,7 +202,7 @@ class PredicateCompiler[F[_]: Concurrent] {
         // Todo: Remove all variables and constraints introduced by each of these stack frames.
       }
 
-    private def ifCallStackCompleteYield: CompilationTree[Unit] =
+    private def yieldIfCallStackIsFinished: CompilationTree[Unit] =
       CompilationTree.get.flatMapF { callStack =>
         if (isCallStackComplete(callStack))
           yieldValidCallStack(callStack)

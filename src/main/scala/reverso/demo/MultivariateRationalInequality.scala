@@ -6,7 +6,7 @@ import org.chocosolver.solver.{Model, Solver}
 import scala.collection.mutable.ListBuffer
 
 /**
-  * The big daddy: consistency checking of systems of multivariate rational (in)equalities!
+  * Spike: Using Choco to solve multivariate rational (in)equalities.
   *
   * This type of equation plays a crucial part in checking whether a stack frame's expressions are consistent with
   * all the preceding stack frames' expressions: it turns out the simplest representation of the most complex

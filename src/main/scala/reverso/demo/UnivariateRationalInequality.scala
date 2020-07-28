@@ -6,6 +6,8 @@ import org.chocosolver.solver.{Model, Solver}
 import scala.collection.mutable.ListBuffer
 
 /**
+  * Spike: Using Choco to solve univariate rational (in)equalities.
+  *
   * Solving univariate rational inequalities is fairly well-documented, so combined with our approach for consistency
   * checking of inequalities by rearranging to all permutations of subjects, forming a directed graph, and checking for
   * cycles, we _could_ have done this part ourselves... multivariate seemed much harder, and required reading papers :(
