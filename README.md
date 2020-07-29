@@ -47,10 +47,10 @@ need upfront). Whilst there are workarounds, they often have limited application
 to achieve a variable-sized array is to declare the maximum number of scalars you need upfront, and then a separate
 scalar to hold the active length of your array: however, this quickly becomes unwieldy if you need an array of arrays.
 
-Working within these restrictions is like trying to write predicates whereby the inputs can only be complex objects of
-fixed structures (i.e. not polymorphic) and must contain only scalars in their fields. If you need anything else (such
+Working within these restrictions is like trying to write predicates whereby the inputs can only be complex objects of a
+fixed shape (i.e. not polymorphic) and must contain only scalars in their fields. If you need anything else (such
 as arrays or polymorphic objects), you must implement them using workarounds that adhere to the limitations previously
-set forth. It's all doable, but it gets very awkward.
+set forth. It's all doable: it's just very awkward.
 
 Reverso's intention was to allow you to work with input structures that could be as free as JSON.
 
@@ -62,26 +62,25 @@ Reverso's intention was to allow you to work with input structures that could be
 
 Poor performance (and lack of any tractable optimisation).
 
-Generating solutions for predicates that use arrays and/or strings as inputs would have resulted in too many variables
-and constraints being added to the internal [Choco](https://github.com/chocoteam/choco-solver) model. This is because a
+Generating solutions for predicates that use arrays and/or strings as inputs resulted in too many variables and
+constraints being added to the internal [Choco](https://github.com/chocoteam/choco-solver) model. This is because a
 Choco variable is added for each scalar in the predicate's input, and strings (in Reverso) are treated as arrays of
 scalars. For example, a predicate to check the equality of two strings would require `N*2` variables, where `N` is the
 length of the largest string. Whilst this is feasible for small inputs, the solution doesn't scale, and the problem
 compounds as arrays are nested: consider the number of variables required for a predicate that checks if an array of
-strings contains any duplicates.
+strings contains duplicates.
 
-Optimising for these scenarios is impractical since Reverso's design hinges around a predicate AST that is easy to run
-in reverse, and the only reason the AST is easy to run in reverse is through the very limited array API that it had
-access to: arrays (and strings) only supported `head`, `tail` and `prepend` (not even `size`!). Supporting additional
-ways to manipulate and access arrays immediately introduces numerous complexities, for instance, making it harder to
-identify if two expressions are actually referring to the same variable. In short, adding first-class support for
-strings, and a richer API for arrays (e.g. a `size` function!) would require significant work, or more likely an
-entirely different approach.
+Optimising for these scenarios is impractical since Reverso's design hinges on a predicate AST that is easy to run in
+reverse, and the only reason the AST is easy to run in reverse is through the very limited array API it exposes: arrays
+(and strings) only support `head`, `tail` and `prepend` (not even `size`!). Supporting additional ways to manipulate
+and access arrays immediately introduces numerous complexities, for instance, making it harder to identify if two
+expressions are actually referring to the same variable. In short, adding first-class support for strings, and a richer
+API for arrays (e.g. a `size` function) would require significant work, or more likely an entirely different approach.
 
 ### The alternative solution (for our use case)
 
 Reverso was originally designed for [AutoSpec](https://github.com/autospec): it was intended to provide input generation
-for REST API endpoints through predicates defined by API maintainers.
+for REST API endpoints.
 
 **The alternative solution we arrived at for AutoSpec** was to design a single AST that is both the generator AST and
 the predicate AST. That is, rather than have our users write predicates in a predicate AST, and then effectively
