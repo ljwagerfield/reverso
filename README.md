@@ -41,10 +41,10 @@ and this is what Choco does.
 
 Reverso's USP was to be a constraint solver with first-class support for complex objects and arrays.
 
-Traditional constraint solvers do not provide first-class support for variable-typed objects or variable-sized arrays:
-they support variable scalars only (and since there's no variable-sized arrays, you must define how many scalars you
+Traditional constraint solvers do not provide first-class support for complex objects or variably-sized arrays:
+they support variable scalars only (and since there's no variably-sized arrays, you must define how many scalars you
 need upfront). Whilst there are workarounds, they often have limited application. For example, a common workaround
-to achieve a variable-sized array is to declare the maximum number of scalars you need upfront, and then a separate
+to achieve a variably-sized array is to declare the maximum number of scalars you need upfront, and then a separate
 scalar to hold the active length of your array: however, this quickly becomes unwieldy if you need an array of arrays.
 
 Working within these restrictions is like trying to write predicates whereby the inputs can only be complex objects of a
@@ -79,8 +79,8 @@ API for arrays (e.g. a `size` function) would require significant work, or more 
 
 ### The alternative solution (for our use case)
 
-Reverso was originally designed for [AutoSpec](https://github.com/autospec): it was intended to provide input generation
-for REST API endpoints.
+Reverso was originally designed for [AutoSpec](https://github.com/ljwagerfield/autospec): it was intended to provide 
+input generation for REST API endpoints.
 
 **The alternative solution we arrived at for AutoSpec** was to design a single AST that is both the generator AST and
 the predicate AST. That is, rather than have our users write predicates in a predicate AST, and then effectively
